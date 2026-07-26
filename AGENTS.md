@@ -38,7 +38,8 @@ structure changes.
 | `src/codeindex/indexing.py` | Application orchestration that streams discovery into chunking and returns preparation counts. |
 | `src/codeindex/__main__.py` | `python -m codeindex` entry point. |
 | `tests/` | Pytest unit, CLI, chunking, application-orchestration, and Git adapter integration coverage. |
-| `README.md` | Prerequisites, editable installation, command examples, limitations, and test command. |
+| `README.md` | Project overview, current capabilities, setup, CLI examples, safety model, and verification commands. |
+| `LICENSE` | MIT license terms for using, modifying, and distributing the project. |
 | `pyproject.toml` | Python and package metadata, Hatchling build configuration, dependencies, console script, and pytest configuration. |
 | `uv.lock` | Committed cross-platform dependency resolution for reproducible `uv` environments. |
 | `docs/vision.md` | Product, scope, architecture, and open-decision source of truth. |
