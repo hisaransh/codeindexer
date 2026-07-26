@@ -257,17 +257,35 @@ need to be downloaded once unless it is bundled or already cached.
 
 ### Chunking
 
-The MVP should use line-aware chunks:
+The MVP uses the versioned `line-v1` strategy:
 
-- Approximately 30-60 lines per chunk.
-- A small overlap between adjacent chunks.
+- At most 50 source lines per chunk.
+- Up to 10 complete overlapping lines between adjacent chunks.
+- A default budget of 2,000 Unicode code points per chunk.
 - Exact source line ranges are preserved.
 - Chunks never combine content from different files.
-- Abnormally large functions or lines cannot exceed the embedding model's input
-  limit.
+- Empty and whitespace-only chunks are not produced.
+- A line that exceeds the budget is split at exact column boundaries.
 
 This strategy may split functions or separate a method from its class. That
 tradeoff is acceptable while validating retrieval.
+
+Chunking preserves repository-relative paths and exact source text, including
+line endings. Lines are one-based and inclusive. Columns are zero-based Unicode
+code-point offsets into the raw source-line segment, with an exclusive end
+column. Partial-line chunks advance without overlap; complete-line windows
+overlap only when doing so still guarantees forward progress.
+
+The character budget sits behind a deterministic, replaceable text-measurement
+boundary. Selecting a real model and tokenizer remains part of the embedding
+milestone. If tokenizer-aware measurement changes chunk text or boundaries, the
+strategy version must change and existing indexes must be rebuilt.
+
+Chunk identifiers are SHA-256 hashes of a canonical representation containing
+the repository-relative path, exact source span and text, chunking
+configuration, budget-measurer identity, and strategy version. They are unique
+within one repository index; the repository identifier and collection mapping
+are added at the persistence boundary.
 
 The final version should use Tree-sitter to chunk around language constructs
 such as functions, methods, classes, and modules.

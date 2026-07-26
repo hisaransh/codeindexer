@@ -34,8 +34,10 @@ structure changes.
 | `src/codeindex/repository/gitops.py` | Git root lookup, deterministic index enumeration, output parsing, and entry classification. |
 | `src/codeindex/repository/policy.py` | Curated supported-file and default exclusion policy. |
 | `src/codeindex/repository/discovery.py` | Lazy working-tree inspection, filtering, and discovery summarization. |
+| `src/codeindex/chunking/` | Versioned chunk values, budget measurement, errors, deterministic identifiers, and line-aware streaming. |
+| `src/codeindex/indexing.py` | Application orchestration that streams discovery into chunking and returns preparation counts. |
 | `src/codeindex/__main__.py` | `python -m codeindex` entry point. |
-| `tests/` | Pytest unit, CLI, and Git adapter integration coverage. |
+| `tests/` | Pytest unit, CLI, chunking, application-orchestration, and Git adapter integration coverage. |
 | `README.md` | Prerequisites, editable installation, command examples, limitations, and test command. |
 | `pyproject.toml` | Python and package metadata, Hatchling build configuration, dependencies, console script, and pytest configuration. |
 | `uv.lock` | Committed cross-platform dependency resolution for reproducible `uv` environments. |

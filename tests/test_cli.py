@@ -1,10 +1,12 @@
-from collections.abc import Callable, Iterable
-from pathlib import Path
+from collections.abc import Callable
+from pathlib import Path, PurePosixPath
 
 import pytest
 from typer.testing import CliRunner
 
 from codeindex import cli
+from codeindex.chunking import ChunkBudgetError
+from codeindex.indexing import IndexPreparationSummary
 from codeindex.repository.errors import (
     GitUnavailableError,
     NestedRepositoryPathError,
@@ -15,7 +17,7 @@ from codeindex.repository.errors import (
     TrackedFilesInspectionError,
 )
 from codeindex.repository.models import (
-    DiscoveredFile,
+    DiscoverySummary,
     Repository,
     SkipReason,
     SkippedFile,
@@ -29,7 +31,7 @@ runner = CliRunner()
     ("arguments", "expected_text"),
     [
         (["--help"], "Index and search local source repositories."),
-        (["index", "--help"], "Discover files eligible for indexing."),
+        (["index", "--help"], "Prepare deterministic chunks for indexing."),
         (["search", "--help"], "Prepare to search a repository."),
         (["status", "--help"], "Prepare to show repository index status."),
     ],
@@ -139,6 +141,7 @@ def test_index_discovers_expected_path_and_prints_summary(
     expected_path: Path,
 ) -> None:
     observed_paths: list[Path] = []
+    observed_collect_skipped: list[bool] = []
     repository = Repository(root=Path("/repository"))
 
     def resolve(path: str | Path) -> Repository:
@@ -146,15 +149,27 @@ def test_index_discovers_expected_path_and_prints_summary(
         return repository
 
     monkeypatch.setattr(cli, "resolve_repository", resolve)
-    monkeypatch.setattr(
-        cli,
-        "discover_files",
-        lambda resolved_repository: [
-            DiscoveredFile(Path("src/app.py"), "app = True\n", 11),
-            SkippedFile(Path("dist/app.js"), SkipReason.GENERATED),
-            SkippedFile(Path("image.bin"), SkipReason.BINARY),
-        ],
-    )
+    def prepare(
+        resolved_repository: Repository,
+        *,
+        collect_skipped: bool,
+    ) -> IndexPreparationSummary:
+        assert resolved_repository is repository
+        observed_collect_skipped.append(collect_skipped)
+        return IndexPreparationSummary(
+            discovery=DiscoverySummary(
+                candidate_count=3,
+                accepted_count=1,
+                skipped_by_reason=(
+                    (SkipReason.BINARY, 1),
+                    (SkipReason.GENERATED, 1),
+                ),
+            ),
+            chunk_count=1,
+            skipped_files=(),
+        )
+
+    monkeypatch.setattr(cli, "prepare_index", prepare)
 
     result = runner.invoke(cli.app, arguments)
 
@@ -162,12 +177,14 @@ def test_index_discovers_expected_path_and_prints_summary(
     assert result.stdout == (
         "Candidates: 3\n"
         "Accepted: 1\n"
+        "Chunks: 1\n"
         "Skipped: 2\n"
         "Skipped by reason: binary=1, generated=1\n"
-        "Index creation is not implemented yet.\n"
+        "Embedding and index persistence are not implemented yet.\n"
     )
     assert result.stderr == ""
     assert observed_paths == [expected_path]
+    assert observed_collect_skipped == [False]
 
 
 def test_index_prints_none_when_no_files_are_skipped(
@@ -180,10 +197,16 @@ def test_index_prints_none_when_no_files_are_skipped(
     )
     monkeypatch.setattr(
         cli,
-        "discover_files",
-        lambda repository: [
-            DiscoveredFile(Path("README.md"), "read me\n", 8)
-        ],
+        "prepare_index",
+        lambda repository, *, collect_skipped: IndexPreparationSummary(
+            discovery=DiscoverySummary(
+                candidate_count=1,
+                accepted_count=1,
+                skipped_by_reason=(),
+            ),
+            chunk_count=1,
+            skipped_files=(),
+        ),
     )
 
     result = runner.invoke(cli.app, ["index", "/repository"])
@@ -202,19 +225,35 @@ def test_index_verbose_lists_skipped_paths_by_reason(
         "resolve_repository",
         lambda path: Repository(root=Path("/repository")),
     )
-    monkeypatch.setattr(
-        cli,
-        "discover_files",
-        lambda repository: [
-            SkippedFile(
-                Path("fixtures/events.data"),
-                SkipReason.UNSUPPORTED_TYPE,
-            ),
-            DiscoveredFile(Path("src/app.py"), "app = True\n", 11),
-            SkippedFile(Path("assets/odd\nname.bin"), SkipReason.BINARY),
-            SkippedFile(Path("assets/logo.bin"), SkipReason.BINARY),
-        ],
+    skipped_files = (
+        SkippedFile(
+            Path("fixtures/events.data"),
+            SkipReason.UNSUPPORTED_TYPE,
+        ),
+        SkippedFile(Path("assets/odd\nname.bin"), SkipReason.BINARY),
+        SkippedFile(Path("assets/logo.bin"), SkipReason.BINARY),
     )
+
+    def prepare(
+        repository: Repository,
+        *,
+        collect_skipped: bool,
+    ) -> IndexPreparationSummary:
+        assert collect_skipped is True
+        return IndexPreparationSummary(
+            discovery=DiscoverySummary(
+                candidate_count=4,
+                accepted_count=1,
+                skipped_by_reason=(
+                    (SkipReason.BINARY, 2),
+                    (SkipReason.UNSUPPORTED_TYPE, 1),
+                ),
+            ),
+            chunk_count=1,
+            skipped_files=skipped_files,
+        )
+
+    monkeypatch.setattr(cli, "prepare_index", prepare)
 
     result = runner.invoke(
         cli.app,
@@ -225,13 +264,14 @@ def test_index_verbose_lists_skipped_paths_by_reason(
     assert result.stdout == (
         "Candidates: 4\n"
         "Accepted: 1\n"
+        "Chunks: 1\n"
         "Skipped: 3\n"
         "Skipped by reason: binary=2, unsupported_type=1\n"
         "Skipped files:\n"
         '  binary: "assets/logo.bin"\n'
         '  binary: "assets/odd\\nname.bin"\n'
         '  unsupported_type: "fixtures/events.data"\n'
-        "Index creation is not implemented yet.\n"
+        "Embedding and index persistence are not implemented yet.\n"
     )
     assert result.stderr == ""
 
@@ -246,10 +286,16 @@ def test_index_verbose_reports_when_nothing_is_skipped(
     )
     monkeypatch.setattr(
         cli,
-        "discover_files",
-        lambda repository: [
-            DiscoveredFile(Path("src/app.py"), "app = True\n", 11)
-        ],
+        "prepare_index",
+        lambda repository, *, collect_skipped: IndexPreparationSummary(
+            discovery=DiscoverySummary(
+                candidate_count=1,
+                accepted_count=1,
+                skipped_by_reason=(),
+            ),
+            chunk_count=1,
+            skipped_files=(),
+        ),
     )
 
     result = runner.invoke(cli.app, ["index", "-v", "/repository"])
@@ -265,18 +311,44 @@ def test_index_discovery_error_is_stderr_without_traceback(
     repository = Repository(root=Path("/repository"))
     monkeypatch.setattr(cli, "resolve_repository", lambda path: repository)
 
-    def fail_discovery(
+    def fail_preparation(
         resolved_repository: Repository,
-    ) -> Iterable[DiscoveredFile]:
+        *,
+        collect_skipped: bool,
+    ) -> IndexPreparationSummary:
         raise TrackedFilesInspectionError(resolved_repository.root)
 
-    monkeypatch.setattr(cli, "discover_files", fail_discovery)
+    monkeypatch.setattr(cli, "prepare_index", fail_preparation)
 
     result = runner.invoke(cli.app, ["index", "/repository"])
 
     assert result.exit_code == 2
     assert result.stdout == ""
     assert "Unable to enumerate Git-tracked files:" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_index_chunking_error_is_stderr_without_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository = Repository(root=Path("/repository"))
+    monkeypatch.setattr(cli, "resolve_repository", lambda path: repository)
+
+    def fail_preparation(
+        resolved_repository: Repository,
+        *,
+        collect_skipped: bool,
+    ) -> IndexPreparationSummary:
+        raise ChunkBudgetError(PurePosixPath("src/huge.py"), line=7)
+
+    monkeypatch.setattr(cli, "prepare_index", fail_preparation)
+
+    result = runner.invoke(cli.app, ["index", "/repository"])
+
+    assert result.exit_code == 2
+    assert result.stdout == ""
+    assert "configured chunk budget" in result.stderr
+    assert '"src/huge.py":7' in result.stderr
     assert "Traceback" not in result.stderr
 
 

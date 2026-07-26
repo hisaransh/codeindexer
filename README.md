@@ -5,8 +5,9 @@ installable command is named `codeindex`.
 
 The current milestone validates that a supplied path is the exact root of a Git
 worktree, discovers safe Git-tracked text files, and reports why other tracked
-paths were skipped. It does not yet chunk files, create or persist an index,
-search code, or report index status.
+paths were skipped. Accepted files are split into deterministic, traceable
+chunks. The project does not yet embed or persist those chunks, search code, or
+report index status.
 
 ## Prerequisites
 
@@ -66,9 +67,10 @@ Its output is a deterministic summary:
 ```text
 Candidates: 18
 Accepted: 12
+Chunks: 47
 Skipped: 6
 Skipped by reason: binary=1, generated=3, secret=2
-Index creation is not implemented yet.
+Embedding and index persistence are not implemented yet.
 ```
 
 Use `--verbose` or `-v` to list every skipped repository-relative path and its
@@ -90,6 +92,18 @@ environment templates such as `.env.example` are accepted, but secret
 filtering remains filename-based and cannot guarantee that arbitrary source
 files contain no credentials. Rails ERB templates are supported; SVG and XML
 files remain excluded.
+
+Accepted files are processed one at a time. The initial `line-v1` strategy
+creates windows of at most 50 lines and 2,000 Unicode code points, with up to
+10 complete overlapping lines between adjacent windows. It preserves the exact
+repository-relative path, source text, line range, and column span. A line that
+cannot fit in one chunk is split at exact column boundaries. Chunk identifiers
+are deterministic for the same path, span, text, configuration, budget
+measurer, and strategy version.
+
+The Unicode code-point budget is a dependency-free placeholder behind a
+replaceable measurement boundary. The embedding milestone will replace it with
+the selected model's tokenizer when enforcing that model's actual input limit.
 
 `search` and `status` continue to print their `not implemented yet`
 placeholders after repository validation.

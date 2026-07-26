@@ -1,19 +1,18 @@
 """Command-line interface for codeindex."""
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Sequence
 import json
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
+from codeindex.chunking import ChunkingError
+from codeindex.indexing import prepare_index
 from codeindex.repository import (
-    DiscoveryDecision,
     RepositoryError,
     SkippedFile,
-    discover_files,
     resolve_repository,
-    summarize_discovery,
 )
 
 
@@ -40,22 +39,23 @@ def _validate_and_render(path: Path, placeholder: str) -> None:
     typer.echo(placeholder)
 
 
-def _discover_and_render(path: Path, *, verbose: bool) -> None:
-    """Run tracked-file discovery and print its deterministic summary."""
+def _prepare_and_render(path: Path, *, verbose: bool) -> None:
+    """Run discovery and chunking, then print a deterministic summary."""
 
-    skipped_files: list[SkippedFile] = []
     try:
         repository = resolve_repository(path)
-        decisions = discover_files(repository)
-        if verbose:
-            decisions = _record_skipped_files(decisions, skipped_files)
-        summary = summarize_discovery(decisions)
-    except RepositoryError as error:
+        preparation = prepare_index(
+            repository,
+            collect_skipped=verbose,
+        )
+    except (RepositoryError, ChunkingError) as error:
         typer.echo(str(error), err=True)
         raise typer.Exit(code=2) from error
 
+    summary = preparation.discovery
     typer.echo(f"Candidates: {summary.candidate_count}")
     typer.echo(f"Accepted: {summary.accepted_count}")
+    typer.echo(f"Chunks: {preparation.chunk_count}")
     typer.echo(f"Skipped: {summary.skipped_count}")
     if summary.skipped_by_reason:
         reason_counts = ", ".join(
@@ -66,23 +66,11 @@ def _discover_and_render(path: Path, *, verbose: bool) -> None:
         reason_counts = "none"
     typer.echo(f"Skipped by reason: {reason_counts}")
     if verbose:
-        _render_skipped_files(skipped_files)
-    typer.echo("Index creation is not implemented yet.")
+        _render_skipped_files(preparation.skipped_files)
+    typer.echo("Embedding and index persistence are not implemented yet.")
 
 
-def _record_skipped_files(
-    decisions: Iterable[DiscoveryDecision],
-    skipped_files: list[SkippedFile],
-) -> Iterator[DiscoveryDecision]:
-    """Retain only skipped path metadata while streaming file decisions."""
-
-    for decision in decisions:
-        if isinstance(decision, SkippedFile):
-            skipped_files.append(decision)
-        yield decision
-
-
-def _render_skipped_files(skipped_files: list[SkippedFile]) -> None:
+def _render_skipped_files(skipped_files: Sequence[SkippedFile]) -> None:
     """Print safely escaped skipped paths grouped deterministically by reason."""
 
     if not skipped_files:
@@ -113,9 +101,9 @@ def index(
         ),
     ] = False,
 ) -> None:
-    """Discover files eligible for indexing."""
+    """Prepare deterministic chunks for indexing."""
 
-    _discover_and_render(path, verbose=verbose)
+    _prepare_and_render(path, verbose=verbose)
 
 
 @app.command()
