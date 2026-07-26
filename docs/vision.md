@@ -2,7 +2,7 @@
 
 Status: Draft
 
-Last updated: July 25, 2026
+Last updated: July 26, 2026
 
 ## Product vision
 
@@ -49,8 +49,8 @@ code results from a local repository.
 
 ### `index <path>`
 
-- Recursively discover text and source-code files.
-- Respect `.gitignore`.
+- Enumerate Git-tracked paths and read their current working-tree contents.
+- Ignore untracked files, deleted paths, symlinks, and submodule entries.
 - Skip binaries, generated directories, dependency directories, secrets, and
   oversized files.
 - Break files into line-aware chunks.
@@ -75,6 +75,87 @@ code results from a local repository.
 - Re-running `index` must not create duplicate chunks.
 - Rebuilding the complete repository is acceptable for the MVP.
 - Incremental updates are intentionally deferred.
+
+### Tracked-file discovery decision
+
+The MVP discovers unique paths from Git's index and reads their current
+working-tree contents. Modified tracked files are included. Untracked files,
+deleted tracked paths, symlinks, submodules, and unresolved merge entries are
+not indexed.
+
+Discovery targets repositories containing up to 10,000 tracked paths and
+approximately 250 MiB of accepted text. Paths may be held as metadata, but file
+contents must be processed one at a time rather than loading a repository into
+memory.
+
+The default per-file limit is 1 MiB. Files must contain non-whitespace UTF-8
+text, with an optional UTF-8 byte-order mark. NUL-containing files are treated
+as binary.
+
+The initial curated file set includes common:
+
+- Source-code and shell extensions
+- Web, markup, and documentation extensions
+- Configuration and infrastructure extensions
+- Extensionless build and project files such as `Dockerfile`, `Makefile`,
+  `CMakeLists.txt`, `Gemfile`, `Jenkinsfile`, Bazel files, `README`, and
+  `LICENSE`
+- Extensionless scripts with a shebang
+
+The supported suffixes are:
+
+```text
+.adoc .asm .bash .c .cc .cfg .cjs .clj .cljs .cljc .cmake .conf
+.cpp .cs .css .cxx .dart .erb .ex .exs .fs .fsx .go .gql .graphql
+.groovy .h .hbs .hh .hpp .hrl .hs .htm .html .hxx .ini .java .jl
+.js .json .jsonc .jsx .kt .kts .less .lua .m .md .mdx .mjs .mm
+.nix .php .pl .pm .properties .proto .ps1 .py .pyi .r .rb .rs .rst
+.sass .scala .scss .sh .sol .sql .svelte .swift .tex .tf .tfvars
+.toml .ts .tsx .txt .vue .yaml .yml .zig
+```
+
+The recognized filenames are:
+
+```text
+.dockerignore .editorconfig .env.example .env.sample .env.template
+.eslintignore .gitattributes .gitignore .npmignore .prettierignore
+.python-version .ruby-version .tool-versions Brewfile BUILD BUILD.bazel
+CMakeLists.txt Dockerfile Gemfile GNUmakefile Jenkinsfile Justfile LICENSE
+Makefile MODULE.bazel Procfile Rakefile README Vagrantfile WORKSPACE
+WORKSPACE.bazel
+```
+
+Matching is case-insensitive, and names beginning with `Dockerfile.` are also
+supported. SVG and XML files are intentionally excluded.
+
+Unknown text formats are skipped as unsupported rather than indexed
+automatically.
+
+The built-in exclusion policy is conservative:
+
+- Dependency directories: `.bundle`, `.direnv`, `.gradle`, `.m2`, `.nox`,
+  `.terraform`, `.tox`, `.venv`, `bower_components`, `env`, `node_modules`,
+  `Pods`, `vendor`, and `venv`
+- Generated or noisy directories: `.cache`, `.idea`, `.mypy_cache`, `.next`,
+  `.nuxt`, `.parcel-cache`, `.pytest_cache`, `.ruff_cache`, `.svelte-kit`,
+  `.vscode`, `__pycache__`, `__snapshots__`, `build`, `coverage`, `dist`,
+  `htmlcov`, `out`, `site`, and `target`
+- Generated files: `bun.lock`, `bun.lockb`, `Cargo.lock`, `composer.lock`,
+  `Gemfile.lock`, `package-lock.json`, `pnpm-lock.yaml`, `poetry.lock`,
+  `uv.lock`, `yarn.lock`, source maps, snapshots, minified JavaScript and CSS,
+  and files declaring a generated-code marker
+- Secret filenames: `.env`, `.env.*`, `.envrc`, `.netrc`, `.npmrc`, `.pypirc`,
+  `credentials.json`, `secrets.json`, `service-account.json`, `id_dsa`,
+  `id_ecdsa`, `id_ed25519`, and `id_rsa`
+- Secret suffixes: `.jks`, `.key`, `.keystore`, `.p12`, `.pem`, `.pfx`,
+  `.tfstate`, and `.tfstate.backup`
+
+`.env.example`, `.env.sample`, and `.env.template` are explicitly safe
+configuration templates. Secret filtering is filename-based protection, not a
+guarantee that arbitrary source or configuration text contains no credentials.
+Every excluded tracked path receives one stable skip reason for reporting.
+`codeindex index --verbose` prints each skipped repository-relative path and
+reason using terminal-safe escaping.
 
 ### Deliberate MVP limitations
 
@@ -261,8 +342,6 @@ A mature local code-search tool should include:
 - Configurable surrounding context lines.
 - Interactive selection that opens a result in an editor.
 - `--json` output for scripts and editor integrations.
-- Explain why a file was ignored.
-- Optionally index only files tracked by Git.
 - Index statistics by language and directory.
 - User configuration with optional repository overrides.
 - Background incremental updates.
@@ -293,7 +372,7 @@ runs locally.
 Safe defaults should:
 
 - Exclude `.env`, private keys, credentials, and common secret files.
-- Respect `.gitignore`.
+- Restrict initial discovery to paths already tracked by Git.
 - Avoid following symlinks outside the selected repository.
 - Enforce file-size limits.
 - Store indexes with user-only permissions.
@@ -309,7 +388,7 @@ threat is outside the search-only MVP.
 - Python 3.12+
 - ChromaDB for vector persistence and nearest-neighbour retrieval
 - Sentence Transformers for the initial local embedder
-- `pathspec` for Git-style ignore matching
+- `pathspec` for future Git-style user include and exclude rules
 - Typer for a multi-command CLI
 - `platformdirs` for platform-appropriate index storage
 - `pytest` for verification
@@ -353,15 +432,10 @@ features a dependable foundation.
 
 ## Open decisions
 
-The following decisions should be settled before implementation moves beyond
-the CLI shell:
+The following decisions remain:
 
 1. Which embedding model will be the first supported default?
-2. What repository size should the MVP support comfortably?
-3. Should initial file discovery include all non-ignored text files or only
-   Git-tracked files?
-4. What exact directories and file patterns should be excluded by default?
-5. What benchmark repositories and questions will measure retrieval quality?
+2. What benchmark repositories and questions will measure retrieval quality?
 
 ## References
 

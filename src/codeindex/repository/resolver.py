@@ -1,49 +1,18 @@
-"""Filesystem validation and Git repository inspection."""
+"""Filesystem validation for exact repository roots."""
 
 from collections.abc import Callable
 from pathlib import Path
-import subprocess
 
 from codeindex.repository.errors import (
-    GitUnavailableError,
     NestedRepositoryPathError,
-    NotGitRepositoryError,
-    RepositoryInspectionError,
     RepositoryPathNotDirectoryError,
     RepositoryPathNotFoundError,
 )
+from codeindex.repository.gitops import find_git_root
 from codeindex.repository.models import Repository
 
 
 GitRootLookup = Callable[[Path], Path]
-
-# git -C /Users/saransh/Desktop/uh/coolapp/app/controllers/performance rev-parse --show-toplevel
-# /Users/saransh/Desktop/uh/coolapp
-def find_git_root(path: Path) -> Path:
-    """Return Git's canonical top-level directory for *path*."""
-
-    try:
-        completed = subprocess.run(
-            ["git", "-C", str(path), "rev-parse", "--show-toplevel"],
-            capture_output=True,
-            check=False,
-            text=True,
-        )
-    except FileNotFoundError as error:
-        raise GitUnavailableError() from error
-    except OSError as error:
-        raise RepositoryInspectionError(path) from error
-
-    if completed.returncode != 0:
-        if "not a git repository" in completed.stderr.casefold():
-            raise NotGitRepositoryError(path)
-        raise RepositoryInspectionError(path)
-
-    root_text = completed.stdout.strip()
-    if not root_text:
-        raise RepositoryInspectionError(path)
-
-    return Path(root_text).expanduser().resolve()
 
 
 def resolve_repository(

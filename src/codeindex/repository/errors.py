@@ -1,10 +1,10 @@
-"""Expected repository validation failures."""
+"""Expected repository validation and discovery failures."""
 
 from pathlib import Path
 
 
 class RepositoryError(Exception):
-    """Base class for expected repository validation failures."""
+    """Base class for expected repository failures."""
 
 
 class RepositoryPathNotFoundError(RepositoryError):
@@ -35,3 +35,13 @@ class GitUnavailableError(RepositoryError):
 class RepositoryInspectionError(RepositoryError):
     def __init__(self, path: Path) -> None:
         super().__init__(f"Unable to inspect Git repository: {path}")
+
+
+class TrackedFilesInspectionError(RepositoryError):
+    def __init__(self, path: Path) -> None:
+        super().__init__(f"Unable to enumerate Git-tracked files: {path}")
+
+
+class TrackedFilesOutputError(RepositoryError):
+    def __init__(self) -> None:
+        super().__init__("Git returned invalid tracked-file data.")

@@ -3,7 +3,7 @@ import subprocess
 
 import pytest
 
-import codeindex.repository.resolver as resolver_module
+import codeindex.repository.gitops as gitops_module
 from codeindex.repository.errors import (
     GitUnavailableError,
     NestedRepositoryPathError,
@@ -12,10 +12,8 @@ from codeindex.repository.errors import (
     RepositoryPathNotDirectoryError,
     RepositoryPathNotFoundError,
 )
-from codeindex.repository.resolver import (
-    find_git_root,
-    resolve_repository,
-)
+from codeindex.repository.gitops import find_git_root
+from codeindex.repository.resolver import resolve_repository
 
 
 def test_resolves_valid_repository_root(tmp_path: Path) -> None:
@@ -123,7 +121,7 @@ def test_git_adapter_reports_missing_executable(
     def unavailable(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
         raise FileNotFoundError
 
-    monkeypatch.setattr(resolver_module.subprocess, "run", unavailable)
+    monkeypatch.setattr(gitops_module.subprocess, "run", unavailable)
 
     with pytest.raises(GitUnavailableError):
         find_git_root(tmp_path)
@@ -140,7 +138,7 @@ def test_git_adapter_distinguishes_non_git_path(
         stderr="fatal: not a git repository",
     )
     monkeypatch.setattr(
-        resolver_module.subprocess,
+        gitops_module.subprocess,
         "run",
         lambda *args, **kwargs: completed,
     )
@@ -160,7 +158,7 @@ def test_git_adapter_reports_unexpected_failed_command(
         stderr="fatal: unexpected failure",
     )
     monkeypatch.setattr(
-        resolver_module.subprocess,
+        gitops_module.subprocess,
         "run",
         lambda *args, **kwargs: completed,
     )

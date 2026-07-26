@@ -28,9 +28,12 @@ structure changes.
 | Path | Role |
 | --- | --- |
 | `src/codeindex/cli.py` | Typer command definitions, terminal rendering, and CLI exit-status translation. |
-| `src/codeindex/repository/errors.py` | Expected repository validation error hierarchy and user-facing messages. |
-| `src/codeindex/repository/models.py` | Typed repository domain values. |
-| `src/codeindex/repository/resolver.py` | Path validation and Git root adapter. |
+| `src/codeindex/repository/errors.py` | Expected repository validation and discovery error hierarchy and user-facing messages. |
+| `src/codeindex/repository/models.py` | Typed repository, tracked-file, discovery-decision, skip-reason, and summary values. |
+| `src/codeindex/repository/resolver.py` | Filesystem path validation and exact-root enforcement. |
+| `src/codeindex/repository/gitops.py` | Git root lookup, deterministic index enumeration, output parsing, and entry classification. |
+| `src/codeindex/repository/policy.py` | Curated supported-file and default exclusion policy. |
+| `src/codeindex/repository/discovery.py` | Lazy working-tree inspection, filtering, and discovery summarization. |
 | `src/codeindex/__main__.py` | `python -m codeindex` entry point. |
 | `tests/` | Pytest unit, CLI, and Git adapter integration coverage. |
 | `README.md` | Prerequisites, editable installation, command examples, limitations, and test command. |
@@ -39,10 +42,12 @@ structure changes.
 | `.gitignore` | Repository exclusions for Python artifacts, local environments, secrets, editor files, and local index data. |
 
 The project uses Typer at the CLI boundary, Hatchling for builds, and pytest for
-tests. Run `python -m pytest` for the configured automated verification. There
-is currently no formatter, linter, type checker, or committed dependency lock
-file. Do not refer to one as if it exists. When adding any of these, update this
-map and document the exact commands contributors should run.
+tests. Git remains the tracked-file discovery adapter; no ignore-matching
+dependency is currently installed. Run `python -m pytest` for the configured
+automated verification. There is currently no formatter, linter, type checker,
+or committed dependency lock file. Do not refer to one as if it exists. When
+adding any of these, update this map and document the exact commands
+contributors should run.
 
 ## How to navigate a task
 
