@@ -38,14 +38,17 @@ structure changes.
 | `tests/` | Pytest unit, CLI, and Git adapter integration coverage. |
 | `README.md` | Prerequisites, editable installation, command examples, limitations, and test command. |
 | `pyproject.toml` | Python and package metadata, Hatchling build configuration, dependencies, console script, and pytest configuration. |
+| `uv.lock` | Committed cross-platform dependency resolution for reproducible `uv` environments. |
 | `docs/vision.md` | Product, scope, architecture, and open-decision source of truth. |
 | `.gitignore` | Repository exclusions for Python artifacts, local environments, secrets, editor files, and local index data. |
 
 The project uses Typer at the CLI boundary, Hatchling for builds, and pytest for
 tests. Git remains the tracked-file discovery adapter; no ignore-matching
-dependency is currently installed. Run `python -m pytest` for the configured
-automated verification. There is currently no formatter, linter, type checker,
-or committed dependency lock file. Do not refer to one as if it exists. When
+dependency is currently installed. The repository commits `uv.lock`; use
+`uv sync --extra dev` to create its locked development environment and
+`uv run python -m pytest` to test within it. A pip-installed development
+environment can run `python -m pytest` directly. There is currently no
+formatter, linter, or type checker. Do not refer to one as if it exists. When
 adding any of these, update this map and document the exact commands
 contributors should run.
 

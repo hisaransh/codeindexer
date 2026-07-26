@@ -28,6 +28,12 @@ Install the project in editable mode with its test dependency:
 python -m pip install -e ".[dev]"
 ```
 
+Alternatively, use the committed `uv.lock` for a reproducible environment:
+
+```sh
+uv sync --extra dev
+```
+
 ## Commands
 
 Each repository path is optional and defaults to the current directory. The
@@ -92,4 +98,10 @@ placeholders after repository validation.
 
 ```sh
 python -m pytest
+```
+
+With `uv`:
+
+```sh
+uv run python -m pytest
 ```
