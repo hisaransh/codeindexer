@@ -22,20 +22,27 @@ Before changing anything:
 
 ## Current repository map
 
-The checkout is still minimal. Keep this section accurate as the structure
-changes.
+The checkout is still intentionally small. Keep this section accurate as the
+structure changes.
 
 | Path | Role |
 | --- | --- |
-| `main.py` | Current CLI entry point; presently a placeholder. |
-| `pyproject.toml` | Python version, package metadata, dependencies, and future tool configuration. |
+| `src/codeindex/cli.py` | Typer command definitions, terminal rendering, and CLI exit-status translation. |
+| `src/codeindex/repository/errors.py` | Expected repository validation error hierarchy and user-facing messages. |
+| `src/codeindex/repository/models.py` | Typed repository domain values. |
+| `src/codeindex/repository/resolver.py` | Path validation and Git root adapter. |
+| `src/codeindex/__main__.py` | `python -m codeindex` entry point. |
+| `tests/` | Pytest unit, CLI, and Git adapter integration coverage. |
+| `README.md` | Prerequisites, editable installation, command examples, limitations, and test command. |
+| `pyproject.toml` | Python and package metadata, Hatchling build configuration, dependencies, console script, and pytest configuration. |
 | `docs/vision.md` | Product, scope, architecture, and open-decision source of truth. |
 | `.gitignore` | Repository exclusions for Python artifacts, local environments, secrets, editor files, and local index data. |
 
-There is currently no application package, test suite, README, formatter,
-linter, type checker, or committed dependency lock file. Do not refer to one as
-if it exists. When adding any of these, update this map and document the exact
-commands contributors should run.
+The project uses Typer at the CLI boundary, Hatchling for builds, and pytest for
+tests. Run `python -m pytest` for the configured automated verification. There
+is currently no formatter, linter, type checker, or committed dependency lock
+file. Do not refer to one as if it exists. When adding any of these, update this
+map and document the exact commands contributors should run.
 
 ## How to navigate a task
 
@@ -94,6 +101,14 @@ only hypothetical consumers.
 Keep external-library types inside their adapters where practical. Core models
 should use standard Python types so discovery, chunking, IDs, and formatting can
 be unit-tested without loading embedding or database libraries.
+
+When a domain grows beyond a focused module, promote it to a package and
+separate errors, typed values, and boundary logic into focused modules. Preserve
+a small, stable public API through the package's `__init__.py` so callers do not
+depend on its internal layout. For example, `codeindex.repository` keeps
+validation errors in `errors.py`, typed values in `models.py`, and Git and
+filesystem inspection in `resolver.py`, while its `__init__.py` exposes the
+public repository API.
 
 ## Data and persistence rules
 

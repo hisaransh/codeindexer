@@ -1,5 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "codebase-indexing"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["typer"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+codeindex = "codeindex.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/codeindex"]
+
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+testpaths = ["tests"]

@@ -318,6 +318,13 @@ threat is outside the search-only MVP.
 `argparse` remains a viable alternative if minimizing CLI dependencies is more
 important than Typer's command structure and user experience.
 
+### CLI framework decision
+
+The initial CLI uses Typer. Its multi-command help and type-driven interface
+outweigh the cost of one additional runtime dependency for this project.
+Repository validation remains independent of Typer so it can be tested and
+reused without loading the CLI framework.
+
 ## MVP success criteria
 
 The MVP is successful when:
@@ -354,8 +361,7 @@ the CLI shell:
 3. Should initial file discovery include all non-ignored text files or only
    Git-tracked files?
 4. What exact directories and file patterns should be excluded by default?
-5. Should Typer or `argparse` define the initial CLI?
-6. What benchmark repositories and questions will measure retrieval quality?
+5. What benchmark repositories and questions will measure retrieval quality?
 
 ## References
 
